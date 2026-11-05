@@ -72,6 +72,11 @@
     .icon-btn { width: 40px; height: 40px; border-radius: 12px; display: grid; place-items: center; color: var(--text); flex: none; }
     .icon-btn:active { background: var(--surface-3); }
     .icon-btn svg { width: 22px; height: 22px; }
+    .bolinha { width: 30px; height: 40px; display: grid; place-items: center; flex: none; }
+    .bolinha i { width: 10px; height: 10px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 0 3px var(--ok-soft); }
+    .bolinha.off i { background: var(--danger); box-shadow: 0 0 0 3px var(--danger-soft); }
+    .bolinha.piscando i { animation: piscar 1s ease-in-out infinite; }
+    @keyframes piscar { 50% { opacity: .2; } }
     .avatar { width: 36px; height: 36px; border-radius: 50%; background: var(--accent-soft); color: var(--accent-texto); font-weight: 700; display: grid; place-items: center; flex: none; }
 
     main { max-width: var(--maxw); margin: 0 auto; padding: 14px 14px calc(110px + var(--safe-bottom)); }
@@ -360,6 +365,7 @@
     <div class="logo" id="logoTopo"><svg viewBox="0 0 24 24"><circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/></svg></div>
     <h1 id="tituloTopo">Itinerou</h1>
     <button class="icon-btn oculto" id="btnMenuViagem" onclick="abrirSheet('sheetMenu')" aria-label="Opções da viagem"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="1"/><circle cx="19" cy="12" r="1"/><circle cx="5" cy="12" r="1"/></svg></button>
+    <button class="bolinha oculto" id="bolinha" onclick="tocarBolinha()" aria-label="Sincronização"><i></i></button>
     <button class="avatar" id="btnConta" onclick="abrirConta()" aria-label="Minha conta">?</button>
   </div>
 </header>
@@ -425,7 +431,7 @@
   <div class="menu-lista">
     <button onclick="fecharSheet('sheetMenu'); setTimeout(editarViagem, 200)"><svg viewBox="0 0 24 24"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/></svg>Editar viagem</button>
     <button id="mnConcluir" onclick="concluirViagem()"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg><span>Concluir viagem</span></button>
-    <button onclick="recarregarViagem()"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>Recarregar</button>
+    <button onclick="recarregarViagem()"><svg viewBox="0 0 24 24"><path d="M21 12a9 9 0 1 1-3-6.7L21 8"/><path d="M21 3v5h-5"/></svg>Sincronizar agora</button>
     <button class="perigo" onclick="excluirViagem()"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>Excluir viagem</button>
   </div>
 </div></div>
@@ -568,7 +574,7 @@
   // ======================================================================
   const SUPABASE_URL = 'https://lgipllhnkciypuqezfyk.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_mqv_4Blj964jndbSCrMHVQ_TZtnyf_k'; // chave pública: pode ficar no app
-  const VERSAO = '1.2';
+  const VERSAO = '1.3';
 
   const LS_SESSAO = 'itinerou_sessao', LS_CACHE = 'itinerou_cache', LS_TEMA = 'itinerou_tema';
   const CACHE_ARQ = 'itinerou-vouchers';   // arquivos dos vouchers guardados no aparelho (offline)
@@ -857,19 +863,29 @@
   function entrouNoApp() {
     $('telaLogin').classList.remove('visivel');
     $('authSenha').value = '';
+    // Outro usuário neste aparelho: descarta os dados locais do anterior
+    if (cache.uid && cache.uid !== sessao.user.id) {
+      cache = { viagens: [], dados: {}, perfil: null }; fila = []; salvarFila();
+      try { caches.delete(CACHE_ARQ); } catch (e) {}
+    }
+    cache.uid = sessao.user.id; salvarCache();
     atualizarAvatar();
     renderLista();
-    carregarViagens();
-    carregarPerfil();
+    sincronizarAgora();
   }
   async function sair() {
-    if (!await confirmar('Sair da conta?', 'Os dados guardados neste aparelho serão apagados (continuam salvos na nuvem).', 'Sair', true)) return;
+    const pend = fila.length;
+    const aviso = pend
+      ? 'ATENÇÃO: há ' + pend + (pend === 1 ? ' alteração que ainda não foi enviada' : ' alterações que ainda não foram enviadas') + ' para a nuvem e ' + (pend === 1 ? 'será perdida' : 'serão perdidas') + '. Conecte-se à internet e espere a bolinha ficar verde antes de sair.'
+      : 'Os dados guardados neste aparelho serão apagados (continuam salvos na nuvem).';
+    if (!await confirmar('Sair da conta?', aviso, 'Sair', true)) return;
     try { if (sessao) await authFetch('logout', null, 'POST', sessao.access_token); } catch (e) {}
-    sessao = null; cache = { viagens: [], dados: {}, perfil: null };
-    try { localStorage.removeItem(LS_SESSAO); localStorage.removeItem(LS_CACHE); } catch (e) {}
+    sessao = null; cache = { viagens: [], dados: {}, perfil: null }; fila = [];
+    try { localStorage.removeItem(LS_SESSAO); localStorage.removeItem(LS_CACHE); localStorage.removeItem(LS_FILA); } catch (e) {}
     try { await caches.delete(CACHE_ARQ); } catch (e) {}
     esconderSheet('sheetConta');
     vid = null; mostrarLista(true);
+    atualizarBolinha();
     mostrarLogin();
   }
   function tratarErro(e, idMsg) {
@@ -880,41 +896,238 @@
   // ======================================================================
   // API (PostgREST + Storage)
   // ======================================================================
+  function erroRede() { const e = new Error('Sem conexão com o servidor.'); e.rede = true; return e; }
+  async function token() {
+    try { return await tokenValido(); }
+    catch (e) { if (e.semSessao) throw e; throw erroRede(); }   // sem internet para renovar: tenta depois
+  }
   async function rest(caminho, o) {
     o = o || {};
-    const h = { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + await tokenValido() };
+    const h = { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + await token() };
     if (o.body !== undefined) h['Content-Type'] = 'application/json';
     if (o.prefer) h['Prefer'] = o.prefer;
     let r;
     try {
       r = await fetch(SUPABASE_URL + '/rest/v1/' + caminho, { method: o.method || 'GET', headers: h, body: o.body !== undefined ? JSON.stringify(o.body) : undefined });
-    } catch (e) { throw new Error('Sem conexão com o servidor.'); }
+    } catch (e) { throw erroRede(); }
     if (r.status === 401) throw erroSemSessao();
     const t = await r.text();
     let j = null; try { j = t ? JSON.parse(t) : null; } catch (e) {}
-    if (!r.ok) throw new Error(traduzirErro(j));
+    if (!r.ok) {
+      const e = new Error(traduzirErro(j));
+      if (r.status >= 500 || r.status === 408 || r.status === 429) e.rede = true;   // temporário: tenta de novo
+      else e.permanente = true;                                                        // dado recusado pelo servidor
+      throw e;
+    }
     return j;
   }
-  const inserir = (tab, corpo) => rest(tab, { method: 'POST', body: corpo, prefer: 'return=representation' }).then(r => r[0]);
-  const alterar = (tab, id, corpo) => rest(tab + '?id=eq.' + id, { method: 'PATCH', body: corpo, prefer: 'return=representation' }).then(r => r[0]);
-  const apagar = (tab, id) => rest(tab + '?id=eq.' + id, { method: 'DELETE' });
+
+  // ======================================================================
+  // OFFLINE + SINCRONIZAÇÃO (igual ao Carrinhou)
+  // Tudo é gravado no aparelho na hora e entra numa fila; a fila sobe quando há internet.
+  // Bolinha: verde fixa = tudo enviado · verde piscando = sincronizando
+  //          vermelha fixa = sem conexão · vermelha piscando = sem conexão e com alterações só no aparelho
+  // ======================================================================
+  const LS_FILA = 'itinerou_fila';
+  let fila = lsGet(LS_FILA, []);
+  let estadoSync = 'ok', sincronizando = false, timerSync = null, alteracoes = 0, opEmEnvio = null;
+  function salvarFila() { lsSet(LS_FILA, fila); }
+
+  // Lista local de uma tabela
+  function listaLocal(tab, viagemId) {
+    if (tab === 'viagens') return cache.viagens;
+    const d = cache.dados[viagemId] || (cache.dados[viagemId] = { atividades: [], gastos: [], vouchers: [] });
+    return d[tab];
+  }
+  function novoReg(tab, corpo) {
+    const reg = Object.assign({ id: uuid(), criado_em: new Date().toISOString() }, corpo);
+    listaLocal(tab, reg.viagem_id).push(reg);
+    enfileirar({ t: 'ins', tab, id: reg.id, v: reg.viagem_id || reg.id, d: Object.assign({}, reg) });
+    return reg;
+  }
+  // (procura pelo id: o objeto em edição pode ter sido trocado por uma sincronização)
+  function atual(tab, reg) { return listaLocal(tab, reg.viagem_id).find(x => x.id === reg.id) || reg; }
+  function mudarReg(tab, reg, campos) {
+    reg = atual(tab, reg);
+    Object.assign(reg, campos);
+    enfileirar({ t: 'upd', tab, id: reg.id, v: reg.viagem_id || reg.id, d: Object.assign({}, campos) });
+    return reg;
+  }
+  function removerReg(tab, reg) {
+    reg = atual(tab, reg);
+    const l = listaLocal(tab, reg.viagem_id), i = l.indexOf(reg);
+    if (i >= 0) l.splice(i, 1);
+    enfileirar({ t: 'del', tab, id: reg.id, v: reg.viagem_id });
+  }
+  function enfileirar(op) {
+    // junta com ações ainda não enviadas (nunca mexe na que está sendo enviada agora)
+    const livre = o => o !== opEmEnvio;
+    const tirar = cond => { fila = fila.filter(o => !livre(o) || !cond(o)); };
+    if (op.t === 'upd') {
+      const ant = fila.find(o => livre(o) && o.tab === op.tab && o.id === op.id && (o.t === 'ins' || o.t === 'upd'));
+      if (ant) { Object.assign(ant.d, op.d); op = null; }
+    } else if (op.t === 'del') {
+      const tinhaIns = fila.some(o => livre(o) && o.tab === op.tab && o.id === op.id && o.t === 'ins');
+      tirar(o => o.tab === op.tab && o.id === op.id);
+      if (tinhaIns) op = null;   // nunca chegou ao servidor: basta esquecer
+    } else if (op.t === 'delViagem') {
+      const tinhaIns = fila.some(o => livre(o) && o.tab === 'viagens' && o.id === op.id && o.t === 'ins');
+      tirar(o => o.v === op.id || (o.tab === 'viagens' && o.id === op.id));
+      if (tinhaIns) op = null;
+    } else if (op.t === 'delarq') {
+      const tinhaUp = fila.some(o => livre(o) && o.t === 'up' && o.caminho === op.caminho);
+      tirar(o => o.t === 'up' && o.caminho === op.caminho);
+      if (tinhaUp) op = null;
+    }
+    if (op) fila.push(op);
+    alteracoes++;
+    salvarFila(); salvarCache();
+    agendarSync(1200);
+  }
+
+  async function executarOp(op) {
+    if (op.t === 'ins') return rest(op.tab + '?on_conflict=id', { method: 'POST', body: op.d, prefer: 'resolution=merge-duplicates,return=minimal' });
+    if (op.t === 'upd') return rest(op.tab + '?id=eq.' + op.id, { method: 'PATCH', body: op.d, prefer: 'return=minimal' });
+    if (op.t === 'del') return rest(op.tab + '?id=eq.' + op.id, { method: 'DELETE' });
+    if (op.t === 'delViagem') {
+      const vs = await rest('vouchers?select=arquivo&viagem_id=eq.' + op.id);
+      for (const x of vs || []) if (x.arquivo) await apagarArquivoServidor(x.arquivo);
+      return rest('viagens?id=eq.' + op.id, { method: 'DELETE' });
+    }
+    if (op.t === 'up') {
+      const blob = await obterArquivo(op.caminho, true);
+      if (!blob) return;   // arquivo sumiu do aparelho: nada a enviar
+      return enviarArquivo(op.caminho, blob);
+    }
+    if (op.t === 'delarq') return apagarArquivoServidor(op.caminho);
+  }
+
+  function agendarSync(ms) {
+    clearTimeout(timerSync);
+    timerSync = setTimeout(sincronizar, ms == null ? 1200 : ms);
+    atualizarBolinha();
+  }
+  function sincronizarAgora() { clearTimeout(timerSync); sincronizar(); }
+
+  async function sincronizar() {
+    if (!sessao) return;
+    if (sincronizando) { agendarSync(1500); return; }
+    sincronizando = true; estadoSync = 'sync'; atualizarBolinha();
+    try {
+      // 1) envia a fila, na ordem
+      while (fila.length) {
+        const op = fila[0];
+        opEmEnvio = op;
+        try { await executarOp(op); }
+        catch (e) {
+          opEmEnvio = null;
+          if (e.semSessao || e.rede || !e.permanente) throw e;
+          fila.shift(); salvarFila();   // o servidor recusou este dado: descarta e segue
+          toast('Uma alteração não pôde ser salva: ' + e.message);
+          continue;
+        }
+        opEmEnvio = null;
+        fila = fila.filter(o => o !== op);
+        salvarFila();
+      }
+      // 2) baixa tudo da nuvem (todas as viagens ficam disponíveis offline)
+      await puxarTudo();
+      estadoSync = 'ok';
+    } catch (e) {
+      opEmEnvio = null;
+      if (e.semSessao) tratarErro(e);
+      estadoSync = 'off';
+      clearTimeout(timerSync);
+      timerSync = setTimeout(sincronizar, fila.length ? 15000 : 60000);
+    } finally {
+      sincronizando = false;
+      atualizarBolinha();
+    }
+  }
+
+  async function puxarTudo() {
+    const marca = alteracoes;
+    const [viagens, atividades, gastos, vouchers, perfis] = await Promise.all([
+      rest('viagens?select=*&order=data_inicio.asc'),
+      rest('atividades?select=*&order=data.asc,ordem.asc,criado_em.asc'),
+      rest('gastos?select=*&order=ordem.asc,criado_em.asc'),
+      rest('vouchers?select=*&order=criado_em.asc'),
+      rest('perfis?select=nome,email')
+    ]);
+    if (alteracoes !== marca || fila.length) { agendarSync(500); return; }   // mexeram durante o download: refaz depois
+    const dados = {};
+    viagens.forEach(v => { dados[v.id] = { atividades: [], gastos: [], vouchers: [] }; });
+    atividades.forEach(a => dados[a.viagem_id] && dados[a.viagem_id].atividades.push(a));
+    gastos.forEach(g => dados[g.viagem_id] && dados[g.viagem_id].gastos.push(g));
+    vouchers.forEach(x => dados[x.viagem_id] && dados[x.viagem_id].vouchers.push(x));
+    const novo = { uid: cache.uid, viagens, dados, perfil: (perfis && perfis[0]) || cache.perfil };
+    const mudou = JSON.stringify(novo) !== JSON.stringify(cache);
+    cache = novo; salvarCache();
+    if (mudou) {
+      atualizarAvatar();
+      if (vid && !viagemAtual()) { history.back(); }
+      else if (vid) renderViagem();
+      renderLista();
+    }
+    // vouchers das viagens em aberto ficam guardados no aparelho
+    baixarVouchers(vouchers.filter(x => { const v = viagens.find(y => y.id === x.viagem_id); return v && !v.concluida; }));
+  }
+
+  function atualizarBolinha() {
+    const b = $('bolinha'); if (!b) return;
+    const pend = fila.length;
+    b.className = 'bolinha' + (estadoSync === 'off' ? ' off' : '') + ((estadoSync === 'sync' || (estadoSync === 'off' && pend)) ? ' piscando' : '');
+    b.classList.toggle('oculto', !sessao);
+  }
+  function tocarBolinha() {
+    const pend = fila.length;
+    if (estadoSync === 'off') toast(pend ? 'Sem conexão. ' + pend + (pend === 1 ? ' alteração guardada' : ' alterações guardadas') + ' no aparelho.' : 'Sem conexão. Mostrando os dados guardados no aparelho.');
+    else if (estadoSync === 'sync') toast('Sincronizando...');
+    else toast('Tudo sincronizado.');
+    sincronizarAgora();
+  }
+  window.addEventListener('online', () => agendarSync(300));
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && sessao) agendarSync(300); });
+  setInterval(() => { if (document.visibilityState === 'visible' && sessao && !sincronizando) sincronizar(); }, 120000);
 
   function caminhoStorage(p) { return p.split('/').map(encodeURIComponent).join('/'); }
   async function enviarArquivo(caminho, blob) {
+    const tk = await token();
     const r = await fetch(SUPABASE_URL + '/storage/v1/object/vouchers/' + caminhoStorage(caminho), {
       method: 'POST', body: blob,
-      headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + await tokenValido(), 'Content-Type': blob.type || 'application/octet-stream', 'x-upsert': 'true' }
-    }).catch(() => { throw new Error('Sem conexão com o servidor.'); });
-    if (!r.ok) { let j = {}; try { j = await r.json(); } catch (e) {} throw new Error(traduzirErro(j)); }
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + tk, 'Content-Type': blob.type || 'application/octet-stream', 'x-upsert': 'true' }
+    }).catch(() => { throw erroRede(); });
+    if (r.status === 401) throw erroSemSessao();
+    if (!r.ok) {
+      let j = {}; try { j = await r.json(); } catch (e) {}
+      const e = new Error(traduzirErro(j));
+      if (r.status >= 500 || r.status === 429) e.rede = true; else e.permanente = true;
+      throw e;
+    }
   }
-  async function apagarArquivo(caminho) {
+  async function apagarArquivoServidor(caminho) {
     if (!caminho) return;
-    try {
-      await fetch(SUPABASE_URL + '/storage/v1/object/vouchers/' + caminhoStorage(caminho), {
-        method: 'DELETE', headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + await tokenValido() }
-      });
-    } catch (e) {}
+    const tk = await token();
+    const r = await fetch(SUPABASE_URL + '/storage/v1/object/vouchers/' + caminhoStorage(caminho), {
+      method: 'DELETE', headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + tk }
+    }).catch(() => { throw erroRede(); });
+    if (r.status >= 500) throw erroRede();   // 404 = já não existe: tudo bem
+  }
+  async function guardarArquivoLocal(caminho, blob) {
+    blobsMem[caminho] = blob;
+    try { const c = await caches.open(CACHE_ARQ); await c.put(chaveArq(caminho), new Response(blob, { headers: { 'Content-Type': blob.type } })); } catch (e) {}
+  }
+  async function apagarArquivoLocal(caminho) {
+    if (!caminho) return;
+    delete blobsMem[caminho];
+    if (urlsMini[caminho]) { URL.revokeObjectURL(urlsMini[caminho]); delete urlsMini[caminho]; }
     try { const c = await caches.open(CACHE_ARQ); await c.delete(chaveArq(caminho)); await c.delete(chaveArq(caminho) + '__mini.png'); } catch (e) {}
+  }
+  // Exclui o arquivo: some do aparelho na hora; do servidor, pela fila
+  function apagarArquivo(caminho) {
+    if (!caminho) return;
+    apagarArquivoLocal(caminho);
+    enfileirar({ t: 'delarq', caminho });
   }
   function chaveArq(caminho) { return new URL('./__voucher/' + caminho, location.href).href; }
   // Busca o arquivo: primeiro no aparelho (funciona offline), senão baixa e guarda
@@ -925,7 +1138,7 @@
     try { c = await caches.open(CACHE_ARQ); const r = await c.match(chaveArq(caminho)); if (r) return (blobsMem[caminho] = await r.blob()); } catch (e) {}
     if (soLocal) return null;
     const r = await fetch(SUPABASE_URL + '/storage/v1/object/authenticated/vouchers/' + caminhoStorage(caminho), {
-      headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + await tokenValido() }
+      headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + await token().catch(() => { throw new Error('Sem conexão: este arquivo ainda não foi baixado neste aparelho.'); }) }
     }).catch(() => { throw new Error('Sem conexão: este arquivo ainda não foi baixado neste aparelho.'); });
     if (!r.ok) throw new Error('Não foi possível abrir o arquivo.');
     const blob = await r.blob();
@@ -940,12 +1153,6 @@
     const nome = (cache.perfil && cache.perfil.nome) || (sessao && sessao.user.email) || '?';
     $('btnConta').textContent = nome.trim().charAt(0).toUpperCase();
   }
-  async function carregarPerfil() {
-    try {
-      const r = await rest('perfis?select=nome,email');
-      if (r && r[0]) { cache.perfil = r[0]; salvarCache(); atualizarAvatar(); }
-    } catch (e) {}
-  }
   function abrirConta() {
     $('contaNome').value = (cache.perfil && cache.perfil.nome) || '';
     $('contaEmail').value = sessao ? sessao.user.email : '';
@@ -958,11 +1165,10 @@
   async function salvarNome() {
     const nome = $('contaNome').value.trim();
     if (!nome) return msg('contaMsg', 'Informe o nome.', 'erro');
-    try {
-      await rest('perfis?id=eq.' + sessao.user.id, { method: 'PATCH', body: { nome } });
-      cache.perfil = Object.assign(cache.perfil || {}, { nome }); salvarCache(); atualizarAvatar();
-      msg('contaMsg', 'Nome salvo.', 'ok');
-    } catch (e) { tratarErro(e, 'contaMsg'); }
+    cache.perfil = Object.assign(cache.perfil || {}, { nome });
+    enfileirar({ t: 'upd', tab: 'perfis', id: sessao.user.id, d: { nome } });
+    atualizarAvatar();
+    msg('contaMsg', 'Nome salvo.', 'ok');
   }
   async function trocarSenha() {
     const s = $('contaSenha').value;
@@ -986,17 +1192,6 @@
   // ======================================================================
   // LISTA DE VIAGENS
   // ======================================================================
-  async function carregarViagens() {
-    try {
-      cache.viagens = await rest('viagens?select=*&order=data_inicio.asc') || [];
-      salvarCache();
-      renderLista();
-      if (vid) renderCabecalho();
-    } catch (e) {
-      if (e.semSessao) return tratarErro(e);
-      toast('Sem conexão: mostrando dados salvos no aparelho.');
-    }
-  }
   function trocarLista(m) {
     listaModo = m;
     $('abaAtivas').classList.toggle('ativo', m === 'ativas');
@@ -1067,20 +1262,17 @@
     if (!corpo.nome) return msg('fvMsg', 'Informe o nome.', 'erro');
     if (!corpo.data_inicio || !corpo.data_fim) return msg('fvMsg', 'Informe as datas.', 'erro');
     if (corpo.data_fim < corpo.data_inicio) return msg('fvMsg', 'A volta deve ser depois da ida.', 'erro');
-    const btn = $('fvSalvar'); ocupado(btn, true);
-    try {
-      if (editando) {
-        const v = await alterar('viagens', editando.id, corpo);
-        cache.viagens = cache.viagens.map(x => x.id === v.id ? v : x);
-        salvarCache(); fecharSheet('sheetViagem'); renderViagem();
-      } else {
-        const v = await inserir('viagens', corpo);
-        cache.viagens.push(v); cache.dados[v.id] = { atividades: [], gastos: [], vouchers: [] };
-        salvarCache(); fecharSheet('sheetViagem');
-        setTimeout(() => abrirViagem(v.id), 60);
-      }
-    } catch (e) { tratarErro(e, 'fvMsg'); }
-    ocupado(btn, false);
+    if (editando) {
+      mudarReg('viagens', editando, corpo);
+      fecharSheet('sheetViagem'); renderViagem();
+    } else {
+      corpo.concluida = false;
+      const v = novoReg('viagens', corpo);
+      cache.dados[v.id] = { atividades: [], gastos: [], vouchers: [] };
+      cache.viagens.sort((a, b) => a.data_inicio < b.data_inicio ? -1 : 1);
+      fecharSheet('sheetViagem');
+      setTimeout(() => abrirViagem(v.id), 200);
+    }
   }
   async function concluirViagem() {
     const v = viagemAtual(); if (!v) return;
@@ -1091,13 +1283,10 @@
       : await confirmar('Concluir viagem?', 'Ela sai da lista e vai para o Histórico. Dá para reabrir depois.', 'Concluir');
     if (history.state && history.state.sheet === 'sheetMenu') history.back();
     if (!ok) return;
-    try {
-      const nv = await alterar('viagens', v.id, { concluida: !reabrir, concluida_em: reabrir ? null : new Date().toISOString() });
-      cache.viagens = cache.viagens.map(x => x.id === nv.id ? nv : x); salvarCache();
-      toast(reabrir ? 'Viagem reaberta.' : 'Viagem concluída! Está no Histórico.');
-      trocarLista(reabrir ? 'ativas' : 'historico');
-      setTimeout(() => history.back(), 80);   // volta para a lista
-    } catch (e) { tratarErro(e); }
+    mudarReg('viagens', v, { concluida: !reabrir, concluida_em: reabrir ? null : new Date().toISOString() });
+    toast(reabrir ? 'Viagem reaberta.' : 'Viagem concluída! Está no Histórico.');
+    trocarLista(reabrir ? 'ativas' : 'historico');
+    setTimeout(() => history.back(), 120);   // volta para a lista
   }
   async function excluirViagem() {
     const v = viagemAtual(); if (!v) return;
@@ -1105,14 +1294,11 @@
     const ok = await confirmar('Excluir "' + v.nome + '"?', 'Apaga roteiro, gastos, notas e vouchers desta viagem. Não dá para desfazer.', 'Excluir', true);
     if (history.state && history.state.sheet === 'sheetMenu') history.back();
     if (!ok) return;
-    try {
-      const vs = await rest('vouchers?select=arquivo&viagem_id=eq.' + v.id);
-      for (const x of vs || []) await apagarArquivo(x.arquivo);
-      await apagar('viagens', v.id);
-      cache.viagens = cache.viagens.filter(x => x.id !== v.id); delete cache.dados[v.id]; salvarCache();
-      toast('Viagem excluída.');
-      setTimeout(() => history.back(), 80);
-    } catch (e) { tratarErro(e); }
+    ((cache.dados[v.id] || {}).vouchers || []).forEach(x => apagarArquivoLocal(x.arquivo));
+    cache.viagens = cache.viagens.filter(x => x.id !== v.id); delete cache.dados[v.id];
+    enfileirar({ t: 'delViagem', id: v.id });   // no servidor apaga arquivos + viagem (cascata)
+    toast('Viagem excluída.');
+    setTimeout(() => history.back(), 120);
   }
 
   // ======================================================================
@@ -1130,27 +1316,10 @@
     trocarAba('roteiro', true);
     renderViagem();
     window.scrollTo(0, 0);
-    carregarDadosViagem(true);
+    rolarParaHoje();
+    baixarVouchers(dadosAtuais().vouchers);
   }
-  async function carregarDadosViagem(rolarHoje) {
-    const id = vid;
-    try {
-      const [atividades, gastos, vouchers] = await Promise.all([
-        rest('atividades?select=*&viagem_id=eq.' + id + '&order=data.asc,ordem.asc,criado_em.asc'),
-        rest('gastos?select=*&viagem_id=eq.' + id + '&order=ordem.asc,criado_em.asc'),
-        rest('vouchers?select=*&viagem_id=eq.' + id + '&order=criado_em.asc')
-      ]);
-      cache.dados[id] = { atividades, gastos, vouchers };
-      salvarCache();
-      if (vid === id) { renderViagem(); if (rolarHoje) rolarParaHoje(); }
-      baixarVouchers(vouchers);
-    } catch (e) {
-      if (e.semSessao) return tratarErro(e);
-      toast('Sem conexão: mostrando dados salvos no aparelho.');
-      if (rolarHoje) rolarParaHoje();
-    }
-  }
-  function recarregarViagem() { fecharSheet('sheetMenu'); carregarViagens(); carregarDadosViagem(); }
+  function recarregarViagem() { fecharSheet('sheetMenu'); sincronizarAgora(); }
 
   function renderViagem() {
     if (!viagemAtual()) return;
@@ -1285,9 +1454,8 @@
   }
   async function alternarFeito(id) {
     const a = dadosAtuais().atividades.find(x => x.id === id); if (!a) return;
-    a.feito = !a.feito; renderRoteiro();
-    try { await alterar('atividades', id, { feito: a.feito }); salvarCache(); }
-    catch (e) { a.feito = !a.feito; renderRoteiro(); tratarErro(e); }
+    mudarReg('atividades', a, { feito: !a.feito });
+    renderRoteiro();
   }
   function renderCores() {
     $('faCores').innerHTML = Object.keys(CORES).map(k =>
@@ -1340,43 +1508,29 @@
     if (!corpo.titulo) return msg('faMsg', 'Informe a atividade.', 'erro');
     const ats = dadosAtuais().atividades;
     if (!editando || editando.data !== corpo.data) corpo.ordem = proximaOrdem(ats, x => x.data === corpo.data);
-    const btn = $('faSalvar'); ocupado(btn, true);
-    try {
-      if (editando) {
-        const a = await alterar('atividades', editando.id, corpo);
-        dadosAtuais().atividades = ats.map(x => x.id === a.id ? a : x);
-      } else {
-        corpo.viagem_id = vid;
-        ats.push(await inserir('atividades', corpo));
-      }
-      ordenarAtividades(); salvarCache(); renderRoteiro();
-      fecharSheet('sheetAtiv');
-    } catch (e) { tratarErro(e, 'faMsg'); }
-    ocupado(btn, false);
+    if (editando) mudarReg('atividades', editando, corpo);
+    else { corpo.viagem_id = vid; corpo.feito = false; novoReg('atividades', corpo); }
+    ordenarAtividades(); salvarCache(); renderRoteiro();
+    fecharSheet('sheetAtiv');
   }
   function ordenarAtividades() {
     dadosAtuais().atividades.sort((a, b) => a.data < b.data ? -1 : a.data > b.data ? 1 : (a.ordem - b.ordem) || (a.criado_em < b.criado_em ? -1 : 1));
   }
   async function moverAtividade(dir) {
     if (!editando) return;
+    editando = atual('atividades', editando);
     const doDia = dadosAtuais().atividades.filter(x => x.data === editando.data);
     const i = doDia.findIndex(x => x.id === editando.id), j = i + dir;
     if (j < 0 || j >= doDia.length) return toast(dir < 0 ? 'Já é a primeira do dia.' : 'Já é a última do dia.');
     [doDia[i], doDia[j]] = [doDia[j], doDia[i]];
-    const mudar = [];
-    doDia.forEach((x, k) => { if (x.ordem !== k + 1) { x.ordem = k + 1; mudar.push(x); } });
-    ordenarAtividades(); renderRoteiro();
-    try { await Promise.all(mudar.map(x => alterar('atividades', x.id, { ordem: x.ordem }))); salvarCache(); }
-    catch (e) { tratarErro(e, 'faMsg'); carregarDadosViagem(); }
+    doDia.forEach((x, k) => { if (x.ordem !== k + 1) mudarReg('atividades', x, { ordem: k + 1 }); });
+    ordenarAtividades(); salvarCache(); renderRoteiro();
   }
   async function excluirAtividade() {
     if (!editando) return;
     if (!await confirmar('Excluir atividade?', editando.titulo, 'Excluir', true)) return;
-    try {
-      await apagar('atividades', editando.id);
-      dadosAtuais().atividades = dadosAtuais().atividades.filter(x => x.id !== editando.id);
-      salvarCache(); renderRoteiro(); fecharSheet('sheetAtiv');
-    } catch (e) { tratarErro(e, 'faMsg'); }
+    removerReg('atividades', editando);
+    renderRoteiro(); fecharSheet('sheetAtiv');
   }
 
   // ---------- Gastos ----------
@@ -1422,23 +1576,16 @@
     if (valor == null || Number.isNaN(valor)) return msg('fgMsg', 'Valor inválido.', 'erro');
     const corpo = { categoria: $('fgCat').value.trim(), valor, caixinha: $('fgCaixinha').checked, fora_total: $('fgFora').checked, obs: $('fgObs').value.trim() || null };
     if (!corpo.categoria) return msg('fgMsg', 'Informe a categoria.', 'erro');
-    const btn = $('fgSalvar'); ocupado(btn, true);
-    try {
-      const gs = dadosAtuais().gastos;
-      if (editando) { const g = await alterar('gastos', editando.id, corpo); dadosAtuais().gastos = gs.map(x => x.id === g.id ? g : x); }
-      else { corpo.viagem_id = vid; corpo.ordem = proximaOrdem(gs, () => true); gs.push(await inserir('gastos', corpo)); }
-      salvarCache(); renderGastos(); fecharSheet('sheetGasto');
-    } catch (e) { tratarErro(e, 'fgMsg'); }
-    ocupado(btn, false);
+    const gs = dadosAtuais().gastos;
+    if (editando) mudarReg('gastos', editando, corpo);
+    else { corpo.viagem_id = vid; corpo.ordem = proximaOrdem(gs, () => true); novoReg('gastos', corpo); }
+    renderGastos(); fecharSheet('sheetGasto');
   }
   async function excluirGasto() {
     if (!editando) return;
     if (!await confirmar('Excluir gasto?', editando.categoria + ' · ' + brl(editando.valor), 'Excluir', true)) return;
-    try {
-      await apagar('gastos', editando.id);
-      dadosAtuais().gastos = dadosAtuais().gastos.filter(x => x.id !== editando.id);
-      salvarCache(); renderGastos(); fecharSheet('sheetGasto');
-    } catch (e) { tratarErro(e, 'fgMsg'); }
+    removerReg('gastos', editando);
+    renderGastos(); fecharSheet('sheetGasto');
   }
 
   // ---------- Notas ----------
@@ -1451,12 +1598,8 @@
   async function salvarNotas() {
     const v = viagemAtual(); if (!v) return;
     const obs = $('txtNotas').value;
-    $('notasStatus').textContent = 'Salvando...';
-    try {
-      await alterar('viagens', v.id, { obs: obs || null });
-      v.obs = obs; salvarCache();
-      $('notasStatus').textContent = 'Salvo';
-    } catch (e) { $('notasStatus').textContent = 'Não salvo: ' + e.message; if (e.semSessao) tratarErro(e); }
+    mudarReg('viagens', v, { obs: obs || null });
+    $('notasStatus').textContent = 'Salvo';
   }
 
   // ---------- Vouchers ----------
@@ -1608,45 +1751,36 @@
   async function salvarVoucher() {
     const corpo = { tipo: tipoSel, titulo: $('fvoTitulo').value.trim(), obs: $('fvoObs').value.trim() || null };
     if (!corpo.titulo) return msg('fvoMsg', 'Informe o título.', 'erro');
-    const btn = $('fvoSalvar'); ocupado(btn, true, arquivoNovo ? 'Enviando...' : 'Salvando...');
-    let enviado = null;
+    const btn = $('fvoSalvar'); ocupado(btn, true);
     try {
       if (arquivoNovo) {
         const blob = await prepararArquivo(arquivoNovo);
         if (blob.size > 10 * 1048576) throw new Error('Arquivo muito grande (máximo 10 MB).');
         const ext = blob.type === 'application/pdf' ? 'pdf' : blob.type === 'image/jpeg' ? 'jpg' : (blob.type.split('/')[1] || 'bin');
-        enviado = sessao.user.id + '/' + vid + '/' + uuid() + '.' + ext;
-        await enviarArquivo(enviado, blob);
-        try { const c = await caches.open(CACHE_ARQ); await c.put(chaveArq(enviado), new Response(blob, { headers: { 'Content-Type': blob.type } })); } catch (e) {}
-        blobsMem[enviado] = blob;
-        Object.assign(corpo, { arquivo: enviado, mime: blob.type, tamanho: blob.size });
+        const caminho = sessao.user.id + '/' + vid + '/' + uuid() + '.' + ext;
+        await guardarArquivoLocal(caminho, blob);              // fica no aparelho na hora
+        enfileirar({ t: 'up', caminho, v: vid });              // sobe para a nuvem quando houver internet
+        Object.assign(corpo, { arquivo: caminho, mime: blob.type, tamanho: blob.size });
       }
-      const vs = dadosAtuais().vouchers;
       if (editando) {
-        const antigo = editando.arquivo;
-        const v = await alterar('vouchers', editando.id, corpo);
-        dadosAtuais().vouchers = vs.map(x => x.id === v.id ? v : x);
-        if (enviado && antigo) apagarArquivo(antigo);
+        const antigo = atual('vouchers', editando).arquivo;
+        mudarReg('vouchers', editando, corpo);
+        if (arquivoNovo && antigo) apagarArquivo(antigo);
       } else {
         corpo.viagem_id = vid;
-        vs.push(await inserir('vouchers', corpo));
+        novoReg('vouchers', corpo);
       }
-      salvarCache(); renderVouchers(); fecharSheet('sheetVoucher');
-    } catch (e) {
-      if (enviado) apagarArquivo(enviado);
-      tratarErro(e, 'fvoMsg');
-    }
+      renderVouchers(); fecharSheet('sheetVoucher');
+    } catch (e) { tratarErro(e, 'fvoMsg'); }
     ocupado(btn, false);
   }
   async function excluirVoucher() {
     if (!editando) return;
     if (!await confirmar('Excluir voucher?', editando.titulo, 'Excluir', true)) return;
-    try {
-      await apagar('vouchers', editando.id);
-      apagarArquivo(editando.arquivo);
-      dadosAtuais().vouchers = dadosAtuais().vouchers.filter(x => x.id !== editando.id);
-      salvarCache(); renderVouchers(); fecharSheet('sheetVoucher');
-    } catch (e) { tratarErro(e, 'fvoMsg'); }
+    const arq = atual('vouchers', editando).arquivo;
+    removerReg('vouchers', editando);
+    apagarArquivo(arq);
+    renderVouchers(); fecharSheet('sheetVoucher');
   }
 
   // ---------- Visualizador ----------
