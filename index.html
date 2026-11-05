@@ -202,9 +202,16 @@
     /* ---------- Vouchers ---------- */
     .vouchers { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
     .voucher { background: var(--surface); border: 1px solid var(--border); border-radius: 16px; overflow: hidden; text-align: left; display: flex; flex-direction: column; }
-    .voucher .thumb { aspect-ratio: 4 / 3; background: var(--surface-2); display: grid; place-items: center; color: var(--muted); position: relative; overflow: hidden; }
-    .voucher .thumb img { width: 100%; height: 100%; object-fit: cover; }
-    .voucher .thumb > svg { width: 34px; height: 34px; stroke-width: 1.6; }
+    .voucher .thumb { aspect-ratio: 4 / 3; display: grid; place-items: center; color: #fff; position: relative; overflow: hidden; background: linear-gradient(135deg, #64748b, #334155); }
+    .voucher .thumb.t-voo { background: linear-gradient(135deg, #0ea5e9, #6366f1); }
+    .voucher .thumb.t-onibus { background: linear-gradient(135deg, #10b981, #0d9488); }
+    .voucher .thumb.t-carro { background: linear-gradient(135deg, #f97316, #f43f5e); }
+    .voucher .thumb.t-hotel { background: linear-gradient(135deg, #8b5cf6, #ec4899); }
+    .voucher .thumb.t-passeio { background: linear-gradient(135deg, #f59e0b, #f97316); }
+    .voucher .thumb.com-previa { background: #fff; }
+    .voucher .thumb img { width: 100%; height: 100%; object-fit: cover; object-position: top center; }
+    .voucher .thumb > svg { width: 52px; height: 52px; stroke-width: 1.5; opacity: .95; }
+    .voucher .thumb .fmt { position: absolute; right: 8px; bottom: 8px; font-size: 10.5px; font-weight: 800; letter-spacing: .04em; background: rgba(0,0,0,.35); color: #fff; padding: 2px 6px; border-radius: 6px; }
     .voucher .tipo { position: absolute; left: 8px; top: 8px; width: 30px; height: 30px; border-radius: 9px; background: var(--surface); display: grid; place-items: center; color: var(--accent-texto); box-shadow: 0 2px 6px rgba(0,0,0,.12); }
     .voucher .tipo svg { width: 17px; height: 17px; }
     .voucher .info { padding: 10px 12px 12px; }
@@ -253,10 +260,17 @@
     .visor .barra b { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 16px; }
     .visor .barra .icon-btn { color: #fff; }
     .visor .barra .icon-btn:active { background: rgba(255,255,255,.15); }
-    .visor .conteudo { flex: 1; overflow: auto; display: flex; align-items: center; justify-content: center; -webkit-overflow-scrolling: touch; }
-    .visor .conteudo img { max-width: 100%; max-height: 100%; object-fit: contain; touch-action: pinch-zoom; }
-    .visor .conteudo img.zoom { max-width: none; max-height: none; width: 200%; }
-    .visor .conteudo iframe { width: 100%; height: 100%; border: 0; background: #fff; }
+    .visor .conteudo { flex: 1; overflow: auto; display: flex; -webkit-overflow-scrolling: touch; touch-action: pan-x pan-y; position: relative; }
+    .visor .zoomer { margin: auto; width: 100%; flex: none; }
+    .visor .zoomer img, .visor .zoomer canvas { display: block; width: 100%; height: auto; background: #fff; }
+    .visor .zoomer canvas + canvas { margin-top: 10px; }
+    .visor .controles { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(16px + var(--safe-bottom)); display: flex; align-items: center; gap: 4px; background: rgba(30, 41, 59, .88); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border-radius: 14px; padding: 4px; color: #fff; z-index: 2; }
+    .visor .controles button { width: 42px; height: 40px; border-radius: 10px; display: grid; place-items: center; color: #fff; }
+    .visor .controles button:active { background: rgba(255,255,255,.15); }
+    .visor .controles svg { width: 20px; height: 20px; }
+    .visor .controles span { min-width: 48px; text-align: center; font-size: 13px; font-weight: 700; }
+    .visor .corpo-visor { flex: 1; display: flex; flex-direction: column; position: relative; min-height: 0; }
+    .visor .carregando { margin: auto; }
     .visor .obs-visor { color: #cbd5e1; font-size: 14px; padding: 10px 16px calc(12px + var(--safe-bottom)); white-space: pre-wrap; }
     .visor .obs-visor:empty { display: none; }
     .carregando { color: #94a3b8; font-size: 14px; }
@@ -499,7 +513,15 @@
     <button class="icon-btn" id="visorCompart" onclick="compartilharArquivo()" aria-label="Compartilhar"><svg viewBox="0 0 24 24"><path d="M4 12v8a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-8"/><polyline points="16 6 12 2 8 6"/><line x1="12" x2="12" y1="2" y2="15"/></svg></button>
     <button class="icon-btn" onclick="editarVoucherDoVisor()" aria-label="Editar"><svg viewBox="0 0 24 24"><path d="M21.174 6.812a1 1 0 0 0-3.986-3.987L3.842 16.174a2 2 0 0 0-.5.83l-1.321 4.352a.5.5 0 0 0 .623.622l4.353-1.32a2 2 0 0 0 .83-.497z"/></svg></button>
   </div>
-  <div class="conteudo" id="visorConteudo"></div>
+  <div class="corpo-visor">
+    <div class="conteudo" id="visorConteudo"></div>
+    <div class="controles" id="visorControles">
+      <button onclick="zoomBotao(1 / 1.5)" aria-label="Diminuir zoom"><svg viewBox="0 0 24 24"><path d="M5 12h14"/></svg></button>
+      <span id="visorZoomTxt">100%</span>
+      <button onclick="zoomBotao(1.5)" aria-label="Aumentar zoom"><svg viewBox="0 0 24 24"><path d="M5 12h14"/><path d="M12 5v14"/></svg></button>
+      <button onclick="definirZoom(1)" aria-label="Ajustar à tela"><svg viewBox="0 0 24 24"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg></button>
+    </div>
+  </div>
   <div class="obs-visor" id="visorObs"></div>
 </div>
 
@@ -546,7 +568,7 @@
   // ======================================================================
   const SUPABASE_URL = 'https://lgipllhnkciypuqezfyk.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_mqv_4Blj964jndbSCrMHVQ_TZtnyf_k'; // chave pública: pode ficar no app
-  const VERSAO = '1.1';
+  const VERSAO = '1.2';
 
   const LS_SESSAO = 'itinerou_sessao', LS_CACHE = 'itinerou_cache', LS_TEMA = 'itinerou_tema';
   const CACHE_ARQ = 'itinerou-vouchers';   // arquivos dos vouchers guardados no aparelho (offline)
@@ -557,6 +579,7 @@
     voo: '<svg viewBox="0 0 24 24"><path d="M17.8 19.2 16 11l3.5-3.5C21 6 21.5 4 21 3c-1-.5-3 0-4.5 1.5L13 8 4.8 6.2c-.5-.1-.9.1-1.1.5l-.3.5c-.2.5-.1 1 .3 1.3L9 12l-2 3H4l-1 1 3 2 2 3 1-1v-3l3-2 3.5 5.3c.3.4.8.5 1.3.3l.5-.2c.4-.3.6-.7.5-1.2z"/></svg>',
     hotel: '<svg viewBox="0 0 24 24"><path d="M2 4v16"/><path d="M2 8h18a2 2 0 0 1 2 2v10"/><path d="M2 17h20"/><path d="M6 8v9"/></svg>',
     passeio: '<svg viewBox="0 0 24 24"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M13 5v2"/><path d="M13 17v2"/><path d="M13 11v2"/></svg>',
+    onibus: '<svg viewBox="0 0 24 24"><path d="M8 6v6"/><path d="M15 6v6"/><path d="M2 12h19.6"/><path d="M18 18h3s.5-1.7.8-2.8c.1-.4.2-.8.2-1.2 0-.4-.1-.8-.2-1.2l-1.4-5C20.1 6.8 19.1 6 18 6H4a2 2 0 0 0-2 2v10h3"/><circle cx="7" cy="18" r="2"/><path d="M9 18h5"/><circle cx="16" cy="18" r="2"/></svg>',
     outro: '<svg viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/></svg>',
     pin: '<svg viewBox="0 0 24 24"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg>',
     check: '<svg viewBox="0 0 24 24"><path d="M20 6 9 17l-5-5"/></svg>',
@@ -568,7 +591,7 @@
     carteira: '<svg viewBox="0 0 24 24"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></svg>',
     pdf: '<svg viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 13H8"/><path d="M16 17H8"/><path d="M16 13h-2"/></svg>'
   };
-  const TIPOS_VOUCHER = { carro: 'Carro', voo: 'Voo', hotel: 'Hotel', passeio: 'Passeio', outro: 'Outro' };
+  const TIPOS_VOUCHER = { voo: 'Voo', onibus: 'Ônibus', carro: 'Carro', hotel: 'Hotel', passeio: 'Passeio', outro: 'Outro' };
   const CORES = { '': 'Nenhum', amarelo: 'Pôr do sol', verde: 'Pago / ingresso', vermelho: 'Logística', azul: 'Importante' };
   const COR_HEX = { '': 'transparent', amarelo: '#f59e0b', verde: '#10b981', vermelho: '#ef4444', azul: '#6366f1' };
 
@@ -891,7 +914,7 @@
         method: 'DELETE', headers: { 'apikey': SUPABASE_KEY, 'Authorization': 'Bearer ' + await tokenValido() }
       });
     } catch (e) {}
-    try { const c = await caches.open(CACHE_ARQ); await c.delete(chaveArq(caminho)); } catch (e) {}
+    try { const c = await caches.open(CACHE_ARQ); await c.delete(chaveArq(caminho)); await c.delete(chaveArq(caminho) + '__mini.png'); } catch (e) {}
   }
   function chaveArq(caminho) { return new URL('./__voucher/' + caminho, location.href).href; }
   // Busca o arquivo: primeiro no aparelho (funciona offline), senão baixa e guarda
@@ -1440,15 +1463,14 @@
   function renderVouchers() {
     const vs = dadosAtuais().vouchers;
     if (!vs.length) {
-      $('abaVouchers').innerHTML = '<div class="vazio"><div class="ic">' + IC.passeio + '</div><h3>Nenhum voucher</h3><p>Guarde aqui o voucher do carro, do voo e do hotel. Ficam disponíveis mesmo sem internet.</p><button class="btn btn-primary" onclick="novoVoucher()">' + IC.plus + 'Adicionar voucher</button></div>';
+      $('abaVouchers').innerHTML = '<div class="vazio"><div class="ic">' + IC.passeio + '</div><h3>Nenhum voucher</h3><p>Guarde aqui o voucher do voo, ônibus, carro e hotel. Ficam disponíveis mesmo sem internet.</p><button class="btn btn-primary" onclick="novoVoucher()">' + IC.plus + 'Adicionar voucher</button></div>';
       return;
     }
-    const ordem = { voo: 1, carro: 2, hotel: 3, passeio: 4, outro: 5 };
+    const ordem = { voo: 1, onibus: 2, carro: 3, hotel: 4, passeio: 5, outro: 6 };
     const lista = [...vs].sort((a, b) => (ordem[a.tipo] - ordem[b.tipo]) || (a.criado_em < b.criado_em ? -1 : 1));
     $('abaVouchers').innerHTML = '<div class="vouchers">' + lista.map(v =>
-      '<button class="voucher" onclick="abrirVoucher(\'' + v.id + '\')"><div class="thumb" id="th-' + v.id + '">' +
-      (v.arquivo ? (v.mime === 'application/pdf' ? IC.pdf : IC.outro) : IC[v.tipo]) +
-      '<span class="tipo">' + IC[v.tipo] + '</span></div><div class="info"><b>' + esc(v.titulo) + '</b>' +
+      '<button class="voucher" onclick="abrirVoucher(\'' + v.id + '\')"><div class="thumb t-' + v.tipo + '" id="th-' + v.id + '">' + IC[v.tipo] +
+      (v.arquivo ? '<span class="fmt">' + (v.mime === 'application/pdf' ? 'PDF' : 'IMG') + '</span>' : '') + '</div><div class="info"><b>' + esc(v.titulo) + '</b>' +
       '<small>' + (v.obs ? esc(v.obs.split('\n')[0]) : TIPOS_VOUCHER[v.tipo]) + '</small>' +
       (v.arquivo ? '<small class="off" id="off-' + v.id + '"></small>' : '') + '</div></button>').join('') + '</div>';
     lista.forEach(v => { if (v.arquivo) mostrarMiniatura(v); });
@@ -1458,10 +1480,73 @@
     const blob = await obterArquivo(v.arquivo, true).catch(() => null);
     const th = $('th-' + v.id), off = $('off-' + v.id);
     if (off) off.textContent = blob ? 'Disponível offline' : '';
-    if (!blob || !th || !/^image\//.test(blob.type)) return;
-    if (!urlsMini[v.arquivo]) urlsMini[v.arquivo] = URL.createObjectURL(blob);
-    th.innerHTML = '<img src="' + urlsMini[v.arquivo] + '" alt=""><span class="tipo">' + IC[v.tipo] + '</span>';
+    if (!blob || !th) return;
+    if (!urlsMini[v.arquivo]) {
+      let previa = null;
+      if (ehPdf(blob, v)) previa = await miniaturaPdf(v.arquivo, blob).catch(() => null);
+      else if (/^image\//.test(blob.type)) previa = blob;
+      if (!previa) return;
+      urlsMini[v.arquivo] = URL.createObjectURL(previa);
+    }
+    const th2 = $('th-' + v.id); if (!th2) return;
+    th2.classList.add('com-previa');
+    th2.innerHTML = '<img src="' + urlsMini[v.arquivo] + '" alt=""><span class="tipo">' + IC[v.tipo] + '</span>' +
+      '<span class="fmt">' + (ehPdf(blob, v) ? 'PDF' : 'IMG') + '</span>';
   }
+  function ehPdf(blob, v) { return (blob && blob.type === 'application/pdf') || (v && v.mime === 'application/pdf'); }
+
+  // ---------- PDF.js (carregado só quando precisa; guardado no aparelho para funcionar offline) ----------
+  const PDFJS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
+  const CACHE_LIBS = 'itinerou-libs';
+  let pdfjsPronto = null;
+  async function textoLib(url) {
+    let c = null;
+    try { c = await caches.open(CACHE_LIBS); const r = await c.match(url); if (r) return await r.text(); } catch (e) {}
+    const r = await fetch(url);
+    if (!r.ok) throw new Error('Não foi possível carregar o leitor de PDF.');
+    const t = await r.text();
+    try { if (c) await c.put(url, new Response(t, { headers: { 'Content-Type': 'text/javascript' } })); } catch (e) {}
+    return t;
+  }
+  function carregarPdfJs() {
+    if (!pdfjsPronto) pdfjsPronto = (async () => {
+      const [lib, worker] = await Promise.all([textoLib(PDFJS + 'pdf.min.js'), textoLib(PDFJS + 'pdf.worker.min.js')]);
+      await new Promise((ok, erro) => {
+        const sc = document.createElement('script');
+        sc.src = URL.createObjectURL(new Blob([lib], { type: 'text/javascript' }));
+        sc.onload = ok; sc.onerror = () => erro(new Error('Não foi possível carregar o leitor de PDF.'));
+        document.head.appendChild(sc);
+      });
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc = URL.createObjectURL(new Blob([worker], { type: 'text/javascript' }));
+      return window.pdfjsLib;
+    })().catch(e => { pdfjsPronto = null; throw e; });
+    return pdfjsPronto;
+  }
+  async function abrirPdf(blob) {
+    const lib = await carregarPdfJs();
+    return lib.getDocument({ data: new Uint8Array(await blob.arrayBuffer()) }).promise;
+  }
+  async function desenharPagina(pdf, n, largura) {
+    const page = await pdf.getPage(n);
+    const v1 = page.getViewport({ scale: 1 });
+    const vp = page.getViewport({ scale: largura / v1.width });
+    const cv = document.createElement('canvas');
+    cv.width = Math.floor(vp.width); cv.height = Math.floor(vp.height);
+    await page.render({ canvasContext: cv.getContext('2d'), viewport: vp }).promise;
+    return cv;
+  }
+  // Miniatura da 1ª página (guardada no aparelho para não refazer)
+  async function miniaturaPdf(caminho, blob) {
+    const chave = chaveArq(caminho) + '__mini.png';
+    let c = null;
+    try { c = await caches.open(CACHE_ARQ); const r = await c.match(chave); if (r) return await r.blob(); } catch (e) {}
+    const pdf = await abrirPdf(blob);
+    const cv = await desenharPagina(pdf, 1, 480);
+    const png = await new Promise(r => cv.toBlob(r, 'image/jpeg', 0.85));
+    try { if (c && png) await c.put(chave, new Response(png, { headers: { 'Content-Type': 'image/jpeg' } })); } catch (e) {}
+    return png;
+  }
+
   async function baixarVouchers(vs) {
     for (const v of vs || []) {
       if (!v.arquivo) continue;
@@ -1573,6 +1658,7 @@
     $('visorTitulo').textContent = v.titulo;
     $('visorObs').textContent = v.obs || '';
     $('visorConteudo').innerHTML = '<div class="carregando">Abrindo...</div>';
+    $('visorControles').classList.add('oculto');
     $('visorCompart').classList.toggle('oculto', !navigator.share);
     $('visor').classList.add('aberta');
     history.pushState({ sheet: 'visor', tela: 'viagem' }, '');
@@ -1580,14 +1666,75 @@
       visorBlob = await obterArquivo(v.arquivo);
       if (visorUrl) URL.revokeObjectURL(visorUrl);
       visorUrl = URL.createObjectURL(visorBlob);
-      if (/^image\//.test(visorBlob.type) || /^image\//.test(v.mime || '')) {
-        $('visorConteudo').innerHTML = '<img src="' + visorUrl + '" alt="" onclick="this.classList.toggle(\'zoom\')">';
+      zoom = 1; $('visorZoomTxt').textContent = '100%';
+      if (ehPdf(visorBlob, v)) {
+        const pdf = await abrirPdf(visorBlob);
+        if (visorVoucher !== v) return;
+        const z = document.createElement('div'); z.className = 'zoomer'; z.id = 'visorZoom';
+        // desenha com resolução alta para continuar nítido com zoom
+        const larg = Math.min(3200, Math.round($('visorConteudo').clientWidth * Math.min(window.devicePixelRatio || 1, 3) * 2));
+        for (let n = 1; n <= pdf.numPages; n++) {
+          z.appendChild(await desenharPagina(pdf, n, larg));
+          if (n === 1) { $('visorConteudo').innerHTML = ''; $('visorConteudo').appendChild(z); }
+        }
       } else {
-        $('visorConteudo').innerHTML = '<iframe src="' + visorUrl + '" title="Voucher"></iframe>';
+        $('visorConteudo').innerHTML = '<div class="zoomer" id="visorZoom"><img src="' + visorUrl + '" alt=""></div>';
       }
+      $('visorControles').classList.remove('oculto');
     } catch (e) { $('visorConteudo').innerHTML = '<div class="carregando">' + esc(e.message) + '</div>'; }
   }
-  function esconderVisor() { $('visor').classList.remove('aberta'); $('visorConteudo').innerHTML = ''; }
+
+  // ---------- Zoom (pinça com 2 dedos, toque duplo e botões) ----------
+  let zoom = 1, pinca = null, ultimoToque = 0;
+  const ZOOM_MAX = 6;
+  function definirZoom(z, mx, my, base) {
+    const c = $('visorConteudo'), el = $('visorZoom');
+    if (!el) return;
+    z = Math.min(ZOOM_MAX, Math.max(1, z));
+    if (mx == null) { mx = c.clientWidth / 2; my = c.clientHeight / 2; }
+    const b = base || { z: zoom, sl: c.scrollLeft, st: c.scrollTop, ol: el.offsetLeft, ot: el.offsetTop };
+    const px = (b.sl + mx - b.ol) / b.z, py = (b.st + my - b.ot) / b.z;   // ponto do documento sob os dedos
+    zoom = z;
+    el.style.width = (z * 100) + '%';
+    c.scrollLeft = px * z + el.offsetLeft - mx;
+    c.scrollTop = py * z + el.offsetTop - my;
+    $('visorZoomTxt').textContent = Math.round(z * 100) + '%';
+  }
+  function zoomBotao(f) { definirZoom(zoom * f); }
+  (function () {
+    const c = $('visorConteudo');
+    const dist = t => Math.hypot(t[0].clientX - t[1].clientX, t[0].clientY - t[1].clientY);
+    c.addEventListener('touchstart', e => {
+      if (e.touches.length === 2) {
+        const r = c.getBoundingClientRect(), el = $('visorZoom');
+        if (!el) return;
+        pinca = { d: dist(e.touches), z: zoom, sl: c.scrollLeft, st: c.scrollTop, ol: el.offsetLeft, ot: el.offsetTop,
+                  mx: (e.touches[0].clientX + e.touches[1].clientX) / 2 - r.left, my: (e.touches[0].clientY + e.touches[1].clientY) / 2 - r.top };
+      } else if (e.touches.length === 1) {
+        const agora = Date.now();
+        if (agora - ultimoToque < 300) {   // toque duplo: alterna 100% / 250%
+          const r = c.getBoundingClientRect();
+          definirZoom(zoom > 1.05 ? 1 : 2.5, e.touches[0].clientX - r.left, e.touches[0].clientY - r.top);
+          ultimoToque = 0;
+        } else ultimoToque = agora;
+      }
+    }, { passive: true });
+    c.addEventListener('touchmove', e => {
+      if (!pinca || e.touches.length !== 2) return;
+      e.preventDefault();
+      definirZoom(pinca.z * dist(e.touches) / pinca.d, pinca.mx, pinca.my, pinca);
+    }, { passive: false });
+    c.addEventListener('touchend', e => { if (e.touches.length < 2) pinca = null; });
+    c.addEventListener('dblclick', e => { const r = c.getBoundingClientRect(); definirZoom(zoom > 1.05 ? 1 : 2.5, e.clientX - r.left, e.clientY - r.top); });
+    c.addEventListener('wheel', e => {   // PC: Ctrl + rodinha
+      if (!e.ctrlKey) return;
+      e.preventDefault();
+      const r = c.getBoundingClientRect();
+      definirZoom(zoom * (e.deltaY < 0 ? 1.15 : 1 / 1.15), e.clientX - r.left, e.clientY - r.top);
+    }, { passive: false });
+    document.addEventListener('gesturestart', e => { if ($('visor').classList.contains('aberta')) e.preventDefault(); });
+  })();
+  function esconderVisor() { $('visor').classList.remove('aberta'); $('visorConteudo').innerHTML = ''; visorVoucher = null; }
   function fecharVisor() { if (history.state && history.state.sheet === 'visor') history.back(); else esconderVisor(); }
   function abrirArquivoFora() { if (visorUrl) window.open(visorUrl, '_blank'); }
   async function compartilharArquivo() {
@@ -1608,6 +1755,43 @@
   // ======================================================================
   // INÍCIO
   // ======================================================================
+  // ---------- Arrastar a janela para baixo para fechar ----------
+  document.querySelectorAll('.sheet .caixa').forEach(cx => {
+    let y0 = null, t0 = 0, dy = 0, arrastando = false;
+    const fechar = () => { const id = cx.parentElement.id; if (id === 'sheetConfirma') responderConfirma(false); else fecharSheet(id); };
+    cx.addEventListener('touchstart', e => {
+      if (window.innerWidth >= 700 || e.touches.length > 1) { y0 = null; return; }
+      if (cx.scrollTop > 0) { y0 = null; return; }   // só arrasta com o conteúdo no topo
+      y0 = e.touches[0].clientY; t0 = Date.now(); dy = 0; arrastando = false;
+    }, { passive: true });
+    cx.addEventListener('touchmove', e => {
+      if (y0 == null) return;
+      dy = e.touches[0].clientY - y0;
+      if (!arrastando) {
+        if (dy > 10 && cx.scrollTop <= 0) { arrastando = true; cx.style.transition = 'none'; if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); }
+        else if (dy < -10) { y0 = null; return; }
+        else return;
+      }
+      e.preventDefault();
+      cx.style.transform = 'translateY(' + Math.max(0, dy) + 'px)';
+    }, { passive: false });
+    cx.addEventListener('touchend', () => {
+      if (y0 == null) return;
+      y0 = null;
+      if (!arrastando) return;
+      arrastando = false;
+      const vel = dy / Math.max(1, Date.now() - t0);
+      cx.style.transition = 'transform .2s ease';
+      if (dy > 110 || vel > 0.6) {
+        cx.style.transform = 'translateY(110%)';
+        setTimeout(() => { fechar(); cx.style.transition = ''; cx.style.transform = ''; }, 200);
+      } else {
+        cx.style.transform = '';
+        setTimeout(() => { cx.style.transition = ''; }, 200);
+      }
+    });
+  });
+
   (function iniciar() {
     if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
     history.replaceState({ tela: 'lista' }, '');
