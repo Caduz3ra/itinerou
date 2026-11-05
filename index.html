@@ -144,17 +144,22 @@
     .pill svg { width: 15px; height: 15px; }
     .pill.destaque { background: var(--accent-soft); color: var(--accent-texto); border-color: transparent; }
     .pill.concluida { background: var(--ok-soft); color: var(--ok); border-color: transparent; }
+    .fixo { position: sticky; top: calc(58px + var(--safe-top)); z-index: 10; background: var(--bg); margin: -14px -14px 12px; padding: 12px 14px 10px; border-bottom: 1px solid var(--border); }
+    .fixo .cab-viagem { margin-bottom: 10px; }
+    .fixo .dias-nav { padding: 10px 14px 0; margin-bottom: 0; }
     .abas { position: sticky; top: calc(58px + var(--safe-top)); z-index: 10; background: var(--bg); padding: 8px 0 10px; margin: 0 -14px 4px; padding-left: 14px; padding-right: 14px; }
 
     /* ---------- Roteiro ---------- */
-    .dias-nav { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding: 2px 0 12px; margin: 0 -14px; padding-left: 14px; padding-right: 14px; }
+    .dias-nav { position: relative; display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding: 2px 0 12px; margin: 0 -14px; padding-left: 14px; padding-right: 14px; }
     .dias-nav::-webkit-scrollbar { display: none; }
     .dia-chip { flex: none; min-width: 56px; padding: 7px 10px; border-radius: 14px; background: var(--surface); border: 1px solid var(--border); text-align: center; }
     .dia-chip b { display: block; font-size: 17px; font-weight: 800; }
     .dia-chip span { font-size: 11.5px; color: var(--muted); text-transform: uppercase; font-weight: 600; }
     .dia-chip.hoje { border-color: var(--accent); background: var(--accent-soft); }
     .dia-chip.hoje span, .dia-chip.hoje b { color: var(--accent-texto); }
-    .dia { margin-bottom: 22px; scroll-margin-top: calc(130px + var(--safe-top)); }
+    .dia-chip.sel { background: linear-gradient(135deg, var(--accent), var(--accent-2)); border-color: transparent; box-shadow: 0 4px 12px rgba(14, 165, 233, 0.3); }
+    .dia-chip.sel span, .dia-chip.sel b { color: #fff; }
+    .dia { margin-bottom: 22px; }
     .dia-cab { display: flex; align-items: center; gap: 10px; margin: 0 2px 10px; }
     .dia-num { background: var(--text); color: var(--bg); font-size: 12px; font-weight: 800; border-radius: 8px; padding: 4px 8px; text-transform: uppercase; letter-spacing: .03em; }
     .dia-cab h3 { margin: 0; font-size: 16px; font-weight: 700; flex: 1; text-transform: capitalize; }
@@ -357,17 +362,18 @@
 
   <!-- ========== VIAGEM ========== -->
   <section id="telaViagem" class="oculto">
+    <div class="fixo" id="fixoViagem">
     <div class="cab-viagem">
       <div class="dest" id="vDestino"></div>
       <div class="cab-info" id="vInfo"></div>
     </div>
-    <div class="abas">
       <div class="seg" id="abasViagem">
         <button data-aba="roteiro" class="ativo" onclick="trocarAba('roteiro')"><svg viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/></svg>Roteiro</button>
         <button data-aba="vouchers" onclick="trocarAba('vouchers')"><svg viewBox="0 0 24 24"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M13 5v2"/><path d="M13 17v2"/><path d="M13 11v2"/></svg>Vouchers</button>
         <button data-aba="gastos" onclick="trocarAba('gastos')"><svg viewBox="0 0 24 24"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></svg>Gastos</button>
         <button data-aba="notas" onclick="trocarAba('notas')"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Notas</button>
       </div>
+      <div class="dias-nav" id="diasNav"></div>
     </div>
     <div id="abaRoteiro"></div>
     <div id="abaVouchers" class="oculto"></div>
@@ -540,7 +546,7 @@
   // ======================================================================
   const SUPABASE_URL = 'https://lgipllhnkciypuqezfyk.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_mqv_4Blj964jndbSCrMHVQ_TZtnyf_k'; // chave pública: pode ficar no app
-  const VERSAO = '1.0';
+  const VERSAO = '1.1';
 
   const LS_SESSAO = 'itinerou_sessao', LS_CACHE = 'itinerou_cache', LS_TEMA = 'itinerou_tema';
   const CACHE_ARQ = 'itinerou-vouchers';   // arquivos dos vouchers guardados no aparelho (offline)
@@ -1093,7 +1099,7 @@
   function dadosAtuais() { return cache.dados[vid] || (cache.dados[vid] = { atividades: [], gastos: [], vouchers: [] }); }
 
   function abrirViagem(id) {
-    vid = id;
+    vid = id; diaSel = null;
     history.pushState({ tela: 'viagem' }, '');
     $('telaLista').classList.add('oculto'); $('telaViagem').classList.remove('oculto');
     $('btnVoltar').classList.remove('oculto'); $('logoTopo').classList.add('oculto');
@@ -1144,6 +1150,7 @@
   function trocarAba(a, semRolar) {
     aba = a;
     document.querySelectorAll('#abasViagem button').forEach(b => b.classList.toggle('ativo', b.dataset.aba === a));
+    $('diasNav').classList.toggle('oculto', a !== 'roteiro');
     ['roteiro', 'vouchers', 'gastos', 'notas'].forEach(x => $('aba' + x.charAt(0).toUpperCase() + x.slice(1)).classList.toggle('oculto', x !== a));
     atualizarFab();
     if (!semRolar) window.scrollTo({ top: 0 });
@@ -1182,10 +1189,12 @@
   }
   function renderRoteiro() {
     const v = viagemAtual(), hoje = hojeISO(), dias = diasDaViagem(), ats = dadosAtuais().atividades;
-    let nav = '<div class="dias-nav">' + dias.map((d, i) => {
+    $('diasNav').innerHTML = dias.map(d => {
       const dt = dataLocal(d);
-      return '<button class="dia-chip' + (d === hoje ? ' hoje' : '') + '" onclick="irParaDia(\'' + d + '\')"><span>' + SEM[dt.getDay()] + '</span><b>' + dt.getDate() + '</b></button>';
-    }).join('') + '</div>';
+      return '<button class="dia-chip' + (d === hoje ? ' hoje' : '') + '" id="chip-' + d + '" onclick="irParaDia(\'' + d + '\')"><span>' + SEM[dt.getDay()] + '</span><b>' + dt.getDate() + '</b></button>';
+    }).join('');
+    if (!diaSel || !dias.includes(diaSel)) diaSel = dias.includes(hoje) ? hoje : dias[0];
+    marcarChip(diaSel, true);
     let html = dias.map(d => {
       const n = diasEntre(v.data_inicio, d) + 1, foraDatas = d < v.data_inicio || d > v.data_fim;
       const lista = ats.filter(a => a.data === d);
@@ -1195,7 +1204,7 @@
         (lista.length ? lista.map(cardAtividade).join('') : '<button class="dia-vazio" onclick="novaAtividade(\'' + d + '\')">Nada planejado. Toque para adicionar.</button>') +
         '</section>';
     }).join('');
-    $('abaRoteiro').innerHTML = nav + html;
+    $('abaRoteiro').innerHTML = html;
   }
   function cardAtividade(a) {
     const traj = a.trajeto_min != null ? '<div class="trajeto">' + IC.carro + '<span>' + fmtTrajeto(a.trajeto_min) + ' de trajeto</span></div>' : '';
@@ -1210,7 +1219,37 @@
       '<div class="lado"><button class="feito-btn" onclick="event.stopPropagation(); alternarFeito(\'' + a.id + '\')" aria-label="Marcar como feito">' + IC.check + '</button>' +
       '<button class="mapa-btn" onclick="event.stopPropagation(); abrirMapa(\'' + a.id + '\')" aria-label="Abrir no mapa">' + IC.pin + '</button></div></div>';
   }
-  function irParaDia(d) { const el = $('dia-' + d); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+  // ---------- Dias: seleção + rolagem (topo fixo) ----------
+  let diaSel = null, travaSpy = 0;
+  function alturaTopo() { return document.querySelector('.topbar').offsetHeight + $('fixoViagem').offsetHeight; }
+  function marcarChip(d, semAnimar) {
+    diaSel = d;
+    document.querySelectorAll('#diasNav .dia-chip').forEach(c => c.classList.toggle('sel', c.id === 'chip-' + d));
+    const c = $('chip-' + d), nav = $('diasNav');
+    if (c) nav.scrollTo({ left: c.offsetLeft - nav.clientWidth / 2 + c.offsetWidth / 2, behavior: semAnimar ? 'auto' : 'smooth' });
+  }
+  function irParaDia(d) {
+    marcarChip(d);
+    const el = $('dia-' + d); if (!el) return;
+    travaSpy = Date.now() + 900;   // não deixa a rolagem trocar a seleção durante a animação
+    window.scrollTo({ top: Math.max(0, el.getBoundingClientRect().top + window.scrollY - alturaTopo() - 8), behavior: 'smooth' });
+  }
+  // Ao rolar a tela, marca o dia que está aparecendo logo abaixo do topo
+  let spyAgendado = false;
+  window.addEventListener('scroll', () => {
+    if (spyAgendado || !vid || aba !== 'roteiro' || Date.now() < travaSpy) return;
+    spyAgendado = true;
+    requestAnimationFrame(() => {
+      spyAgendado = false;
+      const limite = alturaTopo() + 24, dias = [...document.querySelectorAll('#abaRoteiro .dia')];
+      if (!dias.length) return;
+      let atual = dias[0];
+      if (window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4) atual = dias[dias.length - 1];
+      else for (const el of dias) { if (el.getBoundingClientRect().top <= limite) atual = el; else break; }
+      const d = atual.id.slice(4);
+      if (d !== diaSel) marcarChip(d);
+    });
+  }, { passive: true });
   function rolarParaHoje() {
     const v = viagemAtual(), h = hojeISO();
     if (v && aba === 'roteiro' && h > v.data_inicio && h <= v.data_fim) setTimeout(() => irParaDia(h), 150);
