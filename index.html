@@ -237,6 +237,22 @@
     .gasto .nome small { color: var(--muted); font-size: 12.5px; display: block; white-space: pre-wrap; overflow-wrap: anywhere; }
     .gasto .val { font-weight: 800; font-size: 15.5px; white-space: nowrap; }
     .gasto.fora .val { color: var(--muted); }
+
+    /* ---------- Checklist ---------- */
+    #abasViagem { padding: 3px; gap: 3px; }
+    #abasViagem button { flex-direction: column; height: 46px; gap: 2px; font-size: 11.5px; padding: 0 2px; min-width: 0; }
+    #abasViagem button svg { width: 18px; height: 18px; }
+    .ck-prog { display: flex; align-items: center; gap: 10px; margin: 0 2px 12px; font-size: 13px; font-weight: 600; color: var(--muted); }
+    .ck-prog .barra { flex: 1; height: 6px; border-radius: 6px; background: var(--surface-2); overflow: hidden; }
+    .ck-prog .barra i { display: block; height: 100%; background: var(--ok); border-radius: 6px; transition: width .2s; }
+    .ck-prog button { color: var(--accent-texto); font-weight: 600; font-size: 13px; }
+    .ck-add { display: flex; gap: 8px; margin-bottom: 12px; }
+    .ck-add .btn { width: auto; flex: none; padding: 0 14px; }
+    .ck-item { display: flex; align-items: center; gap: 12px; background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 8px 10px 8px 14px; margin-bottom: 6px; cursor: pointer; }
+    .ck-item .txt { flex: 1; min-width: 0; font-size: 15px; font-weight: 600; overflow-wrap: anywhere; white-space: pre-wrap; }
+    .ck-item.feito { opacity: .7; }
+    .ck-item.feito .txt { text-decoration: line-through; color: var(--muted); }
+    .ck-item.feito .feito-btn { background: var(--ok); border-color: var(--ok); color: #fff; }
     .etq { display: inline-block; font-size: 11px; font-weight: 700; padding: 2px 7px; border-radius: 6px; margin-right: 4px; margin-top: 4px; }
     .etq.cx { background: var(--verde-soft); color: var(--verde); }
     .etq.fora { background: var(--surface-3); color: var(--muted); }
@@ -391,6 +407,7 @@
         <button data-aba="roteiro" class="ativo" onclick="trocarAba('roteiro')"><svg viewBox="0 0 24 24"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4"/><path d="M8 2v4"/><path d="M3 10h18"/></svg>Roteiro</button>
         <button data-aba="vouchers" onclick="trocarAba('vouchers')"><svg viewBox="0 0 24 24"><path d="M2 9a3 3 0 0 1 0 6v2a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-2a3 3 0 0 1 0-6V7a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2Z"/><path d="M13 5v2"/><path d="M13 17v2"/><path d="M13 11v2"/></svg>Vouchers</button>
         <button data-aba="gastos" onclick="trocarAba('gastos')"><svg viewBox="0 0 24 24"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></svg>Gastos</button>
+        <button data-aba="checklist" onclick="trocarAba('checklist')"><svg viewBox="0 0 24 24"><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/></svg>Checklist</button>
         <button data-aba="notas" onclick="trocarAba('notas')"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Notas</button>
       </div>
       <div class="dias-nav" id="diasNav"></div>
@@ -398,6 +415,7 @@
     <div id="abaRoteiro"></div>
     <div id="abaVouchers" class="oculto"></div>
     <div id="abaGastos" class="oculto"></div>
+    <div id="abaChecklist" class="oculto"></div>
     <div id="abaNotas" class="oculto">
       <textarea class="input notas" id="txtNotas" placeholder="Observações da viagem: reservas, telefones, lembretes, o que levar..." oninput="notasAlteradas()"></textarea>
       <div class="salvo" id="notasStatus"></div>
@@ -481,6 +499,22 @@
     <div class="linha-btns">
       <button type="button" class="btn btn-perigo" id="fgExcluir" style="width:auto" onclick="excluirGasto()" aria-label="Excluir"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></button>
       <button class="btn btn-primary" type="submit" id="fgSalvar">Salvar</button>
+    </div>
+  </form>
+</div></div>
+
+<!-- Item do checklist -->
+<div class="sheet" id="sheetCheck"><div class="fundo" onclick="fecharSheet('sheetCheck')"></div><div class="caixa">
+  <div class="alca"></div>
+  <h3 id="tituloFormCheck">Novo item</h3>
+  <form onsubmit="event.preventDefault(); salvarItem();">
+    <div class="field"><label>Lembrete</label><input class="input" id="fcTexto" maxlength="120" placeholder="Ex.: Desligar disjuntores" required></div>
+    <div class="msg" id="fcMsg"></div>
+    <button class="btn btn-primary" type="submit" id="fcSalvar">Salvar</button>
+    <div class="linha-btns" id="fcAcoes" style="margin-top:10px">
+      <button type="button" class="btn" onclick="moverItem(-1)"><svg viewBox="0 0 24 24"><path d="m18 15-6-6-6 6"/></svg>Subir</button>
+      <button type="button" class="btn" onclick="moverItem(1)"><svg viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>Descer</button>
+      <button type="button" class="btn btn-perigo" onclick="excluirItem()" aria-label="Excluir"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></button>
     </div>
   </form>
 </div></div>
@@ -574,7 +608,7 @@
   // ======================================================================
   const SUPABASE_URL = 'https://lgipllhnkciypuqezfyk.supabase.co';
   const SUPABASE_KEY = 'sb_publishable_mqv_4Blj964jndbSCrMHVQ_TZtnyf_k'; // chave pública: pode ficar no app
-  const VERSAO = '1.3';
+  const VERSAO = '1.4';
 
   const LS_SESSAO = 'itinerou_sessao', LS_CACHE = 'itinerou_cache', LS_TEMA = 'itinerou_tema';
   const CACHE_ARQ = 'itinerou-vouchers';   // arquivos dos vouchers guardados no aparelho (offline)
@@ -595,6 +629,7 @@
     rota: '<svg viewBox="0 0 24 24"><circle cx="6" cy="19" r="3"/><path d="M9 19h8.5a3.5 3.5 0 0 0 0-7h-11a3.5 3.5 0 0 1 0-7H15"/><circle cx="18" cy="5" r="3"/></svg>',
     arquivo: '<svg viewBox="0 0 24 24"><rect width="20" height="5" x="2" y="3" rx="1"/><path d="M4 8v11a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8"/><path d="M10 12h4"/></svg>',
     carteira: '<svg viewBox="0 0 24 24"><path d="M19 7V4a1 1 0 0 0-1-1H5a2 2 0 0 0 0 4h15a1 1 0 0 1 1 1v4h-3a2 2 0 0 0 0 4h3a1 1 0 0 0 1-1v-2a1 1 0 0 0-1-1"/><path d="M3 5v14a2 2 0 0 0 2 2h15a1 1 0 0 0 1-1v-4"/></svg>',
+    lista: '<svg viewBox="0 0 24 24"><path d="m3 17 2 2 4-4"/><path d="m3 7 2 2 4-4"/><path d="M13 6h8"/><path d="M13 12h8"/><path d="M13 18h8"/></svg>',
     pdf: '<svg viewBox="0 0 24 24"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M10 13H8"/><path d="M16 17H8"/><path d="M16 13h-2"/></svg>'
   };
   const TIPOS_VOUCHER = { voo: 'Voo', onibus: 'Ônibus', carro: 'Carro', hotel: 'Hotel', passeio: 'Passeio', outro: 'Outro' };
@@ -936,8 +971,8 @@
   // Lista local de uma tabela
   function listaLocal(tab, viagemId) {
     if (tab === 'viagens') return cache.viagens;
-    const d = cache.dados[viagemId] || (cache.dados[viagemId] = { atividades: [], gastos: [], vouchers: [] });
-    return d[tab];
+    const d = cache.dados[viagemId] || (cache.dados[viagemId] = { atividades: [], gastos: [], vouchers: [], checklist: [] });
+    return d[tab] || (d[tab] = []);   // cache antigo pode não ter a lista
   }
   function novoReg(tab, corpo) {
     const reg = Object.assign({ id: uuid(), criado_em: new Date().toISOString() }, corpo);
@@ -1047,19 +1082,21 @@
 
   async function puxarTudo() {
     const marca = alteracoes;
-    const [viagens, atividades, gastos, vouchers, perfis] = await Promise.all([
+    const [viagens, atividades, gastos, vouchers, checklist, perfis] = await Promise.all([
       rest('viagens?select=*&order=data_inicio.asc'),
       rest('atividades?select=*&order=data.asc,ordem.asc,criado_em.asc'),
       rest('gastos?select=*&order=ordem.asc,criado_em.asc'),
       rest('vouchers?select=*&order=criado_em.asc'),
+      rest('checklist?select=*&order=ordem.asc,criado_em.asc'),
       rest('perfis?select=nome,email')
     ]);
     if (alteracoes !== marca || fila.length) { agendarSync(500); return; }   // mexeram durante o download: refaz depois
     const dados = {};
-    viagens.forEach(v => { dados[v.id] = { atividades: [], gastos: [], vouchers: [] }; });
+    viagens.forEach(v => { dados[v.id] = { atividades: [], gastos: [], vouchers: [], checklist: [] }; });
     atividades.forEach(a => dados[a.viagem_id] && dados[a.viagem_id].atividades.push(a));
     gastos.forEach(g => dados[g.viagem_id] && dados[g.viagem_id].gastos.push(g));
     vouchers.forEach(x => dados[x.viagem_id] && dados[x.viagem_id].vouchers.push(x));
+    checklist.forEach(c => dados[c.viagem_id] && dados[c.viagem_id].checklist.push(c));
     const novo = { uid: cache.uid, viagens, dados, perfil: (perfis && perfis[0]) || cache.perfil };
     const mudou = JSON.stringify(novo) !== JSON.stringify(cache);
     cache = novo; salvarCache();
@@ -1268,7 +1305,7 @@
     } else {
       corpo.concluida = false;
       const v = novoReg('viagens', corpo);
-      cache.dados[v.id] = { atividades: [], gastos: [], vouchers: [] };
+      cache.dados[v.id] = { atividades: [], gastos: [], vouchers: [], checklist: [] };
       cache.viagens.sort((a, b) => a.data_inicio < b.data_inicio ? -1 : 1);
       fecharSheet('sheetViagem');
       setTimeout(() => abrirViagem(v.id), 200);
@@ -1305,7 +1342,11 @@
   // VIAGEM ABERTA
   // ======================================================================
   function viagemAtual() { return cache.viagens.find(v => v.id === vid); }
-  function dadosAtuais() { return cache.dados[vid] || (cache.dados[vid] = { atividades: [], gastos: [], vouchers: [] }); }
+  function dadosAtuais() {
+    const d = cache.dados[vid] || (cache.dados[vid] = { atividades: [], gastos: [], vouchers: [], checklist: [] });
+    if (!d.checklist) d.checklist = [];
+    return d;
+  }
 
   function abrirViagem(id) {
     vid = id; diaSel = null;
@@ -1324,7 +1365,7 @@
   function renderViagem() {
     if (!viagemAtual()) return;
     renderCabecalho();
-    renderRoteiro(); renderVouchers(); renderGastos();
+    renderRoteiro(); renderVouchers(); renderGastos(); renderChecklist();
     if (document.activeElement !== $('txtNotas')) $('txtNotas').value = viagemAtual().obs || '';
     atualizarFab();
   }
@@ -1343,12 +1384,12 @@
     aba = a;
     document.querySelectorAll('#abasViagem button').forEach(b => b.classList.toggle('ativo', b.dataset.aba === a));
     $('diasNav').classList.toggle('oculto', a !== 'roteiro');
-    ['roteiro', 'vouchers', 'gastos', 'notas'].forEach(x => $('aba' + x.charAt(0).toUpperCase() + x.slice(1)).classList.toggle('oculto', x !== a));
+    ['roteiro', 'vouchers', 'gastos', 'checklist', 'notas'].forEach(x => $('aba' + x.charAt(0).toUpperCase() + x.slice(1)).classList.toggle('oculto', x !== a));
     atualizarFab();
     if (!semRolar) window.scrollTo({ top: 0 });
   }
   function atualizarFab() {
-    const t = !vid ? 'Nova viagem' : { roteiro: 'Atividade', vouchers: 'Voucher', gastos: 'Gasto', notas: '' }[aba];
+    const t = !vid ? 'Nova viagem' : { roteiro: 'Atividade', vouchers: 'Voucher', gastos: 'Gasto', checklist: '', notas: '' }[aba];
     $('fab').classList.toggle('oculto', !t || (!vid && listaModo === 'historico'));
     $('fabTexto').textContent = t;
   }
@@ -1357,6 +1398,7 @@
     if (aba === 'roteiro') return novaAtividade();
     if (aba === 'vouchers') return novoVoucher();
     if (aba === 'gastos') return novoGasto();
+    if (aba === 'checklist') return novoItem();
   }
 
   // ---------- Roteiro ----------
@@ -1586,6 +1628,81 @@
     if (!await confirmar('Excluir gasto?', editando.categoria + ' · ' + brl(editando.valor), 'Excluir', true)) return;
     removerReg('gastos', editando);
     renderGastos(); fecharSheet('sheetGasto');
+  }
+
+  // ---------- Checklist ----------
+  function itensOrdenados() { return dadosAtuais().checklist.slice().sort((a, b) => (a.ordem - b.ordem) || (a.criado_em < b.criado_em ? -1 : 1)); }
+  function renderChecklist() {
+    const its = itensOrdenados(), feitos = its.filter(c => c.feito).length;
+    const ant = $('ckNovo'), digitado = ant ? ant.value : '', comFoco = ant && document.activeElement === ant;   // sincronização não apaga o que está sendo digitado
+    const add = '<form class="ck-add" onsubmit="event.preventDefault(); adicionarRapido();"><input class="input" id="ckNovo" maxlength="120" placeholder="Adicionar lembrete..." autocomplete="off"><button class="btn btn-primary" type="submit" aria-label="Adicionar">' + IC.plus + '</button></form>';
+    if (!its.length) {
+      $('abaChecklist').innerHTML = add + '<div class="vazio"><div class="ic">' + IC.lista + '</div><h3>Nenhum item ainda</h3><p>Anote o que não pode esquecer: desligar disjuntores, carregador, documentos...</p></div>';
+      restaurarCampo(digitado, comFoco);
+      return;
+    }
+    const pct = Math.round(feitos * 100 / its.length);
+    $('abaChecklist').innerHTML = add +
+      '<div class="ck-prog"><span>' + feitos + ' de ' + its.length + '</span><div class="barra"><i style="width:' + pct + '%"></i></div>' +
+      (feitos ? '<button onclick="desmarcarTodos()">Desmarcar todos</button>' : '') + '</div>' +
+      its.map(c => '<div class="ck-item' + (c.feito ? ' feito' : '') + '" onclick="editarItem(\'' + c.id + '\')">' +
+        '<div class="txt">' + esc(c.texto) + '</div>' +
+        '<button class="feito-btn" onclick="event.stopPropagation(); alternarItem(\'' + c.id + '\')" aria-label="Marcar">' + IC.check + '</button></div>').join('');
+    restaurarCampo(digitado, comFoco);
+  }
+  function restaurarCampo(t, foco) { const el = $('ckNovo'); el.value = t; if (foco) el.focus(); }
+  function adicionarRapido() {
+    const t = $('ckNovo').value.trim(); if (!t) return;
+    novoReg('checklist', { viagem_id: vid, texto: t, feito: false, ordem: proximaOrdem(dadosAtuais().checklist, () => true) });
+    $('ckNovo').value = '';
+    renderChecklist();
+    $('ckNovo').focus();
+  }
+  function alternarItem(id) {
+    const c = dadosAtuais().checklist.find(x => x.id === id); if (!c) return;
+    mudarReg('checklist', c, { feito: !c.feito });
+    renderChecklist();
+  }
+  async function desmarcarTodos() {
+    const fs = dadosAtuais().checklist.filter(c => c.feito); if (!fs.length) return;
+    if (!await confirmar('Desmarcar todos?', fs.length + (fs.length === 1 ? ' item volta' : ' itens voltam') + ' a ficar pendente' + (fs.length === 1 ? '.' : 's.'), 'Desmarcar')) return;
+    fs.forEach(c => mudarReg('checklist', c, { feito: false }));
+    renderChecklist();
+  }
+  function novoItem() {
+    editando = null;
+    $('tituloFormCheck').textContent = 'Novo item';
+    $('fcTexto').value = ''; $('fcAcoes').classList.add('oculto'); msg('fcMsg', '');
+    abrirSheet('sheetCheck');
+  }
+  function editarItem(id) {
+    const c = dadosAtuais().checklist.find(x => x.id === id); if (!c) return;
+    editando = c;
+    $('tituloFormCheck').textContent = 'Editar item';
+    $('fcTexto').value = c.texto; $('fcAcoes').classList.remove('oculto'); msg('fcMsg', '');
+    abrirSheet('sheetCheck');
+  }
+  function salvarItem() {
+    const texto = $('fcTexto').value.trim();
+    if (!texto) return msg('fcMsg', 'Escreva o lembrete.', 'erro');
+    if (editando) mudarReg('checklist', editando, { texto });
+    else novoReg('checklist', { viagem_id: vid, texto, feito: false, ordem: proximaOrdem(dadosAtuais().checklist, () => true) });
+    renderChecklist(); fecharSheet('sheetCheck');
+  }
+  function moverItem(dir) {
+    if (!editando) return;
+    editando = atual('checklist', editando);
+    const its = itensOrdenados(), i = its.findIndex(x => x.id === editando.id), j = i + dir;
+    if (i < 0 || j < 0 || j >= its.length) return;
+    [its[i], its[j]] = [its[j], its[i]];
+    its.forEach((c, k) => { if (c.ordem !== k + 1) mudarReg('checklist', c, { ordem: k + 1 }); });
+    renderChecklist();
+  }
+  async function excluirItem() {
+    if (!editando) return;
+    if (!await confirmar('Excluir item?', editando.texto, 'Excluir', true)) return;
+    removerReg('checklist', editando);
+    renderChecklist(); fecharSheet('sheetCheck');
   }
 
   // ---------- Notas ----------
